@@ -2,10 +2,9 @@
 vim.g.mapleader = " "
 vim.g.maplocalleader = " "
 
-
 -- user options (adapted/frankensteined from Kickstart.nvim)
 vim.o.number = true
-vim.o.relativenumber = true
+--vim.o.relativenumber = true
 vim.o.signcolumn = "yes"
 vim.o.wrap = true
 vim.o.tabstop = 4
@@ -79,13 +78,18 @@ vim.pack.add({
     {src = 'https://github.com/neovim/nvim-lspconfig'},
     {src = 'https://github.com/mason-org/mason.nvim'},
     {src = 'https://github.com/lervag/vimtex'},
---    {src = ''},
---    {src = ''},
---    {src = ''},
---    {src = ''},
---    {src = ''},
---    {src = ''},
---    {src = ''},
+    {src = 'https://github.com/nvim-mini/mini.diff'},
+    {src = 'https://github.com/nvim-mini/mini.notify'},
+    {src = 'https://github.com/nvim-mini/mini.deps'},
+    {src = 'https://github.com/nvim-mini/mini.pick'},
+--    {src = 'https://github.com/nvim-mini/mini.git'},
+    {src = 'https://github.com/nvim-mini/mini.animate'},
+    {src = 'https://github.com/nvim-mini/mini.icons'},
+    {src = 'https://github.com/nvim-mini/mini.starter'},
+    {src = 'https://github.com/nvim-mini/mini.statusline'},
+    {src = 'https://github.com/nvim-mini/mini.pairs'},
+    {src = 'https://github.com/nvim-mini/mini.surround'},
+--    {src = 'https://github.com/nvim-mini/mini.snippets'}
 --    {src = ''},
 --    {src = ''},
 })
