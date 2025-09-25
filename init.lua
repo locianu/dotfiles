@@ -58,15 +58,6 @@ vim.api.nvim_create_autocmd("LspAttach", {
     end,
 })
 
-vim.lsp.config('lua_ls', {
-    settings = {
-        Lua = {
-            diagnostics = {
-                globals = { 'vim' }
-            }
-        }
-    }
-})
 vim.lsp.enable({
     "lua_ls",
     "basedpyright",
@@ -78,9 +69,31 @@ vim.lsp.enable({
     "html-lsp",
     "julia-lsp",
     "ltex-ls-plus",
-    "lua-language-server",
 })
 
+vim.lsp.config('lua_ls', {
+    settings = {
+        Lua = {
+            diagnostics = {
+                globals = { 'vim' }
+            }
+        }
+    }
+})
+
+vim.lsp.config('css-lsp')
+
+vim.lsp.config('glow')
+
+vim.lsp.config('harper-ls')
+
+vim.lsp.config('html-lsp')
+
+vim.lsp.config('julia-lsp')
+
+vim.lsp.config('ltex-ls-plus')
+
+vim.lsp.config('r')
 -- plugins
 vim.pack.add({
     { src = 'https://github.com/nvim-treesitter/nvim-treesitter', version = 'main' },
