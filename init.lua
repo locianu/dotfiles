@@ -58,19 +58,6 @@ vim.api.nvim_create_autocmd("LspAttach", {
     end,
 })
 
-vim.lsp.enable({
-    "lua_ls",
-    "basedpyright",
-    "r",
-    "clangd",
-    "css-lsp",
-    "glow",
-    "harper-ls",
-    "html-lsp",
-    "julia-lsp",
-    "ltex-ls-plus",
-})
-
 vim.lsp.config('lua_ls', {
     settings = {
         Lua = {
@@ -81,23 +68,145 @@ vim.lsp.config('lua_ls', {
     }
 })
 
-vim.lsp.config('css-lsp')
+local function activate_env(path)
+    assert(vim.fn.has 'nvim-0.10' == 1, 'requires Nvim 0.10 or newer')
+    local bufnr = vim.api.nvim_get_current_buf()
+    local julials_clients = vim.lsp.get_clients { bufnr = bufnr, name = 'julials' }
+    assert(
+        #julials_clients > 0,
+        'method julia/activateenvironment is not supported by any servers active on the current buffer'
+    )
+    local function _activate_env(environment)
+        if environment then
+            for _, julials_client in ipairs(julials_clients) do
+                julials_client:notify('julia/activateenvironment', { envPath = environment })
+            end
+            vim.notify('Julia environment activated: \n`' .. environment .. '`', vim.log.levels.INFO)
+        end
+    end
+    if path then
+        path = vim.fs.normalize(vim.fn.fnamemodify(vim.fn.expand(path), ':p'))
+        local found_env = false
+        for _, project_file in ipairs(root_files) do
+            local file = vim.uv.fs_stat(vim.fs.joinpath(path, project_file))
+            if file and file.type then
+                found_env = true
+                break
+            end
+        end
+        if not found_env then
+            vim.notify('Path is not a julia environment: \n`' .. path .. '`', vim.log.levels.WARN)
+            return
+        end
+        _activate_env(path)
+    else
+        local depot_paths = vim.env.JULIA_DEPOT_PATH
+            and vim.split(vim.env.JULIA_DEPOT_PATH, vim.fn.has 'win32' == 1 and ';' or ':')
+            or { vim.fn.expand '~/.julia' }
+        local environments = {}
+        vim.list_extend(environments, vim.fs.find(root_files, { type = 'file', upward = true, limit = math.huge }))
+        for _, depot_path in ipairs(depot_paths) do
+            local depot_env = vim.fs.joinpath(vim.fs.normalize(depot_path), 'environments')
+            vim.list_extend(
+                environments,
+                vim.fs.find(function(name, env_path)
+                    return vim.tbl_contains(root_files, name) and string.sub(env_path, #depot_env + 1):match '^/[^/]*$'
+                end, { path = depot_env, type = 'file', limit = math.huge })
+            )
+        end
+        environments = vim.tbl_map(vim.fs.dirname, environments)
+        vim.ui.select(environments, { prompt = 'Select a Julia environment' }, _activate_env)
+    end
+end
 
-vim.lsp.config('glow')
+vim.lsp.config('julia-lsp', {
+    cmd = { "julia", "--startup-file=no", "--history-file=no", "-e", '    # Load LanguageServer.jl: attempt to load from ~/.julia/environments/nvim-lspconfig\n    # with the regular load path as a fallback\n    ls_install_path = joinpath(\n        get(DEPOT_PATH, 1, joinpath(homedir(), ".julia")),\n        "environments", "nvim-lspconfig"\n    )\n    pushfirst!(LOAD_PATH, ls_install_path)\n    using LanguageServer\n    popfirst!(LOAD_PATH)\n    depot_path = get(ENV, "JULIA_DEPOT_PATH", "")\n    project_path = let\n        dirname(something(\n            ## 1. Finds an explicitly set project (JULIA_PROJECT)\n            Base.load_path_expand((\n                p = get(ENV, "JULIA_PROJECT", nothing);\n                p === nothing ? nothing : isempty(p) ? nothing : p\n            )),\n            ## 2. Look for a Project.toml file in the current working directory,\n            ##    or parent directories, with $HOME as an upper boundary\n            Base.current_project(),\n            ## 3. First entry in the load path\n            get(Base.load_path(), 1, nothing),\n            ## 4. Fallback to default global environment,\n            ##    this is more or less unreachable\n            Base.load_path_expand("@v#.#"),\n        ))\n    end\n    @info "Running language server" VERSION pwd() project_path depot_path\n    server = LanguageServer.LanguageServerInstance(stdin, stdout, project_path, depot_path)\n    server.runlinter = true\n    run(server)\n  ' },
+    filetypes = { 'julia' },
+    on_attach = function(_, bufnr)
+        vim.api.nvim_buf_create_user_command(bufnr, 'LspJuliaActivateEnv', activate_env, {
+            desc = 'Activate a Julia environment',
+            nargs = '?',
+            complete = 'file',
+        })
+    end,
+    root_markers = { 'Project.toml', 'JuliaProject.toml' }
+})
 
-vim.lsp.config('harper-ls')
+local language_id_mapping = {
+    bib = 'bibtex',
+    pandoc = 'markdown',
+    plaintex = 'tex',
+    rnoweb = 'rsweave',
+    rst = 'restructuredtext',
+    tex = 'latex',
+    text = 'plaintext',
+}
 
-vim.lsp.config('html-lsp')
+vim.lsp.config('ltex-ls-plus', {
+    cmd = { 'ltex-ls-plus' },
+    filetypes = {
+        'bib',
+        'context',
+        'gitcommit',
+        'html',
+        'markdown',
+        'org',
+        'pandoc',
+        'plaintex',
+        'quarto',
+        'mail',
+        'mdx',
+        'rmd',
+        'rnoweb',
+        'rst',
+        'tex',
+        'text',
+        'typst',
+        'xhtml',
+    },
+    root_markers = { '.git' },
+    get_language_id = function(_, filetype)
+        return language_id_mapping[filetype] or filetype
+    end,
+    settings = {
+        ltex = {
+            enabled = {
+                'bib',
+                'context',
+                'gitcommit',
+                'html',
+                'markdown',
+                'org',
+                'pandoc',
+                'plaintex',
+                'quarto',
+                'mail',
+                'mdx',
+                'rmd',
+                'rnoweb',
+                'rst',
+                'tex',
+                'latex',
+                'text',
+                'typst',
+                'xhtml',
+            },
+        },
+    },
+})
 
-vim.lsp.config('julia-lsp')
 
-vim.lsp.config('ltex-ls-plus')
+vim.lsp.enable({
+    "lua_ls",
+    "basedpyright",
+    "clangd",
+    "julia-lsp",
+    "ltex-ls-plus",
+})
 
-vim.lsp.config('r')
 -- plugins
 vim.pack.add({
     { src = 'https://github.com/nvim-treesitter/nvim-treesitter', version = 'main' },
-    { src = 'https://github.com/neovim/nvim-lspconfig' },
     { src = 'https://github.com/neovim/nvim-lspconfig' },
     { src = 'https://github.com/mason-org/mason.nvim' },
     { src = 'https://github.com/lervag/vimtex' },
@@ -128,20 +237,20 @@ require 'nvim-treesitter.config'.setup {
         additional_vim_regex_highlighting = false,
     },
 }
-require 'mini.diff'.setup{}
-require 'mini.notify'.setup{}
-require 'mini.pick'.setup{}
-require 'mini.icons'.setup{}
-require 'mini.starter'.setup{}
-require 'mini.statusline'.setup{}
-require 'mini.pairs'.setup{
+require 'mini.diff'.setup {}
+require 'mini.notify'.setup {}
+require 'mini.pick'.setup {}
+require 'mini.icons'.setup {}
+require 'mini.starter'.setup {}
+require 'mini.statusline'.setup {}
+require 'mini.pairs'.setup {
     mappings = {
         ['<'] = { action = 'open', pair = '<>', neigh_pattern = '[^\\].' },
         ['>'] = { action = 'close', pair = '<>', neigh_pattern = '[^\\].' },
     },
 }
-require 'mini.surround'.setup{}
-require 'mini.snippets'.setup{}
+require 'mini.surround'.setup {}
+require 'mini.snippets'.setup {}
 
 
 -- keymapping
